@@ -20,7 +20,6 @@ ailayer_input_t input_layer;           // Definition of the AIfES input layer
 
 ailayer_dense_t hidden_layer_1; // Definition of the dense hidden layer
 
-
 void build_AIfES_model()
 {
   // The model is being build in this function. First of all, the layers (input, hidden and output layer) need to be initialized.
@@ -106,16 +105,11 @@ void train_AIfES_model()
   // Definition of the pointer towards the optimizer, which helps to optimize the learning process of the ANN
   aiopti_t *optimizer;
 
-  // ADAM optimizer
-  aiopti_adam_f32_t adam_opti; // Creation of the ADAM optimizer, other optimizers are available
-  // Set parameters of the ADAM optimizer
-  adam_opti.learning_rate = 0.1f;
-  adam_opti.beta1 = 0.9f;
-  adam_opti.beta2 = 0.999f;
-  adam_opti.eps = 1e-7;
+  aiopti_sgd_f32_t sgd_opti;
+  sgd_opti.learning_rate = 0.1f;
+  sgd_opti.momentum = 0.1f;
 
-  // Create the optimizer with the specified parameters
-  optimizer = aiopti_adam_f32_default(&adam_opti);
+  optimizer = aiopti_sgd_f32_default(&sgd_opti);
 
   // -------------------------------- Allocate and schedule the working memory for training ---------
   // Calculate the necessary memory size to store intermediate results, gradients and momentums for training.
@@ -150,7 +144,7 @@ void train_AIfES_model()
   // ------------------------------------- Run the training ------------------------------------
   float loss;                   // Variable to store the loss of the model
   uint32_t batch_size = 5;      // Setting the batch size, here: full batch
-  uint16_t epochs = 300;        // Set the number of epochs for training
+  uint16_t epochs = 90;        // Set the number of epochs for training
   uint16_t print_interval = 10; // Print every ten epochs the current loss
 
   Serial.println(F("Start training"));
