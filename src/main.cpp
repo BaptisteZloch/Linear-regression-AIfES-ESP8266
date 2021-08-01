@@ -142,7 +142,7 @@ void train_AIfES_model()
   // ------------------------------------- Run the training ------------------------------------
   float loss;
   uint32_t batch_size = 5;
-  uint16_t epochs = 300;
+  uint16_t epochs = 600;
   uint16_t print_interval = 10;
 
   Serial.println(F("Start training"));
@@ -234,7 +234,7 @@ void loop()
   float _x = -100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (100 + 100)));
   float real_output = f(_x);
   float calculated_output = inference_AIfES_model(_x);
-  
+
   Serial.print(F("\t"));
   Serial.print(real_output);
   Serial.print(F("\t"));
