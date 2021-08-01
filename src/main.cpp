@@ -182,6 +182,32 @@ void train_AIfES_model()
   }
 }
 
+float inference_AIfES_model(float x)
+{
+  float input_data[1];              // Array for storage of the RGB input data
+  uint16_t input_shape[] = {1, 1};  // Definition of the shape of the tensor, here: {1 (i.e. 1 sample), 3 (i.e. the sample contains 3 RGB values)}
+  aitensor_t input_tensor;          // Creation of the input AIfES tensor
+  input_tensor.dtype = aif32;       // Definition of the used data type, here float with 32 bits, different ones are available
+  input_tensor.dim = 2;             // Dimensions of the tensor, here 2 dimensions, as specified at input_shape
+  input_tensor.shape = input_shape; // Set the shape of the input_tensor
+  input_tensor.data = input_data;   // Assign the input_data array to the tensor. It expects a pointer to the array where the data is stored
+
+  // Tensor for the output with 3 classes
+  // Output values of the ANN are saved here
+  float output_data[1];               // Array for storage of the output data, for each object/class one output is created
+  uint16_t output_shape[] = {1, 1};   // Definition of the shape of the tensor, here: {1 (i.e. 1 sample), 3 (i.e. the sample contains predictions for 3 classes/objects)}
+  aitensor_t output_tensor;           // Creation of the output AIfES tensor
+  output_tensor.dtype = aif32;        // Definition of the used data type, here float with 32 bits, different ones are available
+  output_tensor.dim = 2;              // Dimensions of the tensor, here 2 dimensions, as specified at output_shape
+  output_tensor.shape = output_shape; // Set the shape of the input_tensor
+  output_tensor.data = output_data;   // Assign the output_data array to the tensor. It expects a pointer to the array where the data is stored
+  input_data[0] = x;
+
+  aialgo_inference_model(&model, &input_tensor, &output_tensor); //make inference with our model and input data
+
+  return output_data[0];
+}
+
 float f(float x)
 {
   return 2 * x + 1;
@@ -204,34 +230,17 @@ void setup()
 
 void loop()
 {
-  float input_data[1];              // Array for storage of the RGB input data
-  uint16_t input_shape[] = {1, 1};  // Definition of the shape of the tensor, here: {1 (i.e. 1 sample), 3 (i.e. the sample contains 3 RGB values)}
-  aitensor_t input_tensor;          // Creation of the input AIfES tensor
-  input_tensor.dtype = aif32;       // Definition of the used data type, here float with 32 bits, different ones are available
-  input_tensor.dim = 2;             // Dimensions of the tensor, here 2 dimensions, as specified at input_shape
-  input_tensor.shape = input_shape; // Set the shape of the input_tensor
-  input_tensor.data = input_data;   // Assign the input_data array to the tensor. It expects a pointer to the array where the data is stored
-
-  // Tensor for the output with 3 classes
-  // Output values of the ANN are saved here
-  float output_data[1];               // Array for storage of the output data, for each object/class one output is created
-  uint16_t output_shape[] = {1, 1};   // Definition of the shape of the tensor, here: {1 (i.e. 1 sample), 3 (i.e. the sample contains predictions for 3 classes/objects)}
-  aitensor_t output_tensor;           // Creation of the output AIfES tensor
-  output_tensor.dtype = aif32;        // Definition of the used data type, here float with 32 bits, different ones are available
-  output_tensor.dim = 2;              // Dimensions of the tensor, here 2 dimensions, as specified at output_shape
-  output_tensor.shape = output_shape; // Set the shape of the input_tensor
-  output_tensor.data = output_data;   // Assign the output_data array to the tensor. It expects a pointer to the array where the data is stored
-
   //generate a random int and assign it to the input of our tensor
   float _x = -100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (100 + 100)));
-  input_data[0] = _x;
-  aialgo_inference_model(&model, &input_tensor, &output_tensor); //make inference with our model and input data
+  float real_output = f(_x);
+  float calculated_output = inference_AIfES_model(_x);
+  
   Serial.print(F("\t"));
-  Serial.print(f(_x));
+  Serial.print(real_output);
   Serial.print(F("\t"));
-  Serial.print(output_data[0]);
+  Serial.print(calculated_output);
   Serial.print(F("\t\t"));
-  Serial.print(computeDifference(f(_x),output_data[0]));
-  Serial.println("%");
+  Serial.print(computeDifference(real_output, calculated_output));
+  Serial.println(" %");
   delay(700);
 }
