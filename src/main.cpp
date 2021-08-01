@@ -2,6 +2,7 @@
 #include "LittleFS.h"
 #include <ESP8266WiFi.h>
 #include <aifes.h>
+#include <stdlib.h> //to use abs()
 
 aimodel_t model; // AIfES model
 ailayer_t *x;    // Layer object from AIfES, contains the layers
@@ -10,13 +11,13 @@ ailoss_mse_f32_t mse_loss;
 aiopti_t *optimizer; // Object for the optimizer
 
 //2x+1
-float input_data[] = {-1.0f, 0.0f, 1.0f, 2.0f, 3.0f};
-float target_data[] = {-3.0f, 1.0f, 3.0f, 5.0f, 7.0f};
+float input_data[] = {-3.0f, 0.0f, 1.0f, 3.0f, 5.0f};
+float target_data[] = {-5.0f, 1.0f, 3.0f, 7.0f, 11.0f};
 
 void *parameter_memory = NULL; // Pointer to the memory stack of the AIfES model
 
-uint16_t input_layer_shape[] = {1, 1}; // 3 Inputs RGB, Definition of the shape of the input. Each training data set contains 3 different values (RGB). Therefore, the input shape is (1,3)
-ailayer_input_t input_layer;           // Definition of the AIfES input layer
+uint16_t input_layer_shape[] = {1, 1};
+ailayer_input_t input_layer; // Definition of the AIfES input layer
 
 ailayer_dense_t hidden_layer_1; // Definition of the dense hidden layer
 
@@ -70,20 +71,20 @@ void train_AIfES_model()
 
   // -------------------------------- Create tensors needed for training ---------------------
   // Create the input tensor for training, contains all samples
-  uint16_t input_shape[] = {5, 1};  // Definition of the shape of the tensor, here: {# of total samples (i.e. samples per object * 3 objects), 3 (i.e. for each sample we have 3 RGB values)}
-  aitensor_t input_tensor;          // Creation of the input AIfES tensor
-  input_tensor.dtype = aif32;       // Definition of the used data type, here float with 32 bits, different ones are available
-  input_tensor.dim = 2;             // Dimensions of the tensor, here 2 dimensions, as specified at input_shape
-  input_tensor.shape = input_shape; // Set the shape of the input_tensor
-  input_tensor.data = input_data;   // Assign the training_data array to the tensor. It expects a pointer to the array where the data is stored
+  uint16_t input_shape[] = {5, 1};
+  aitensor_t input_tensor;
+  input_tensor.dtype = aif32;
+  input_tensor.dim = 2;
+  input_tensor.shape = input_shape;
+  input_tensor.data = input_data;
 
   // Create the target tensor for training, contains the desired output for the corresponding sample to train the ANN
-  uint16_t target_shape[] = {5, 1};   // Definition of the shape of the tensor, here: {# of total samples (i.e. samples per object * 3 objects), 3 (i.e. for each sample we have 3 possible output classes)}
-  aitensor_t target_tensor;           // Creation of the target AIfES tensor
-  target_tensor.dtype = aif32;        // Definition of the used data type, here float with 32 bits, different ones are available
-  target_tensor.dim = 2;              // Dimensions of the tensor, here 2 dimensions, as specified at target_shape
-  target_tensor.shape = target_shape; // Set the shape of the target tensor
-  target_tensor.data = target_data;   // Assign the labels array to the tensor. It expects a pointer to the array where the data is stored
+  uint16_t target_shape[] = {5, 1};
+  aitensor_t target_tensor;
+  target_tensor.dtype = aif32;
+  target_tensor.dim = 2;
+  target_tensor.shape = target_shape;
+  target_tensor.data = target_data;
 
   // Create an output tensor for training, here the results of the ANN are saved and compared to the target tensor during training
   float output_data[5][1];            // Array for storage of the output data
@@ -102,18 +103,15 @@ void train_AIfES_model()
   aimath_f32_default_tensor_init_uniform(&hidden_layer_1.bias, from, to);
 
   // -------------------------------- Define the optimizer for training ---------------------
-  // Definition of the pointer towards the optimizer, which helps to optimize the learning process of the ANN
   aiopti_t *optimizer;
 
   aiopti_sgd_f32_t sgd_opti;
-  sgd_opti.learning_rate = 0.1f;
-  sgd_opti.momentum = 0.1f;
+  sgd_opti.learning_rate = 0.001f;
+  sgd_opti.momentum = 0.0f;
 
   optimizer = aiopti_sgd_f32_default(&sgd_opti);
 
   // -------------------------------- Allocate and schedule the working memory for training ---------
-  // Calculate the necessary memory size to store intermediate results, gradients and momentums for training.
-  // It needs the model and the optimizer as parameters
   uint32_t memory_size = aialgo_sizeof_training_memory(&model, optimizer);
 
   // Output of the calculated memory size
@@ -142,10 +140,10 @@ void train_AIfES_model()
   aialgo_init_model_for_training(&model, optimizer);
 
   // ------------------------------------- Run the training ------------------------------------
-  float loss;                   // Variable to store the loss of the model
-  uint32_t batch_size = 5;      // Setting the batch size, here: full batch
-  uint16_t epochs = 90;        // Set the number of epochs for training
-  uint16_t print_interval = 10; // Print every ten epochs the current loss
+  float loss;
+  uint32_t batch_size = 5;
+  uint16_t epochs = 300;
+  uint16_t print_interval = 10;
 
   Serial.println(F("Start training"));
   for (i = 0; i < epochs; i++)
@@ -170,11 +168,6 @@ void train_AIfES_model()
   Serial.println(F("Finished training"));
 
   // ----------------------------------------- Evaluate the trained model --------------------------
-  // Here the trained network is tested with the training data. The training data is used as input and the predicted result
-  // of the ANN is shown along with the corresponding labels.
-
-  // Run the inference with the trained AIfES model, i.e. predict the output from the training data with the use of the ANN
-  // The function needs the trained model, the input_tensor with the input data and the output_tensor where the results are saved in the corresponding array
   aialgo_inference_model(&model, &input_tensor, &output_tensor);
 
   // Print the original labels and the predicted results
@@ -189,6 +182,16 @@ void train_AIfES_model()
   }
 }
 
+float f(float x)
+{
+  return 2 * x + 1;
+}
+
+float computeDifference(float theorical, float calculated)
+{
+  return 100 * abs((theorical - calculated) / theorical);
+}
+
 void setup()
 {
   Serial.begin(115200); //115200 baud rate (If necessary, change in the serial monitor)
@@ -196,9 +199,39 @@ void setup()
     ;
   build_AIfES_model();
   train_AIfES_model();
+  Serial.println(F("\tReal\tCalculated\tDifference"));
 }
 
 void loop()
 {
-  // put your main code here, to run repeatedly:
+  float input_data[1];              // Array for storage of the RGB input data
+  uint16_t input_shape[] = {1, 1};  // Definition of the shape of the tensor, here: {1 (i.e. 1 sample), 3 (i.e. the sample contains 3 RGB values)}
+  aitensor_t input_tensor;          // Creation of the input AIfES tensor
+  input_tensor.dtype = aif32;       // Definition of the used data type, here float with 32 bits, different ones are available
+  input_tensor.dim = 2;             // Dimensions of the tensor, here 2 dimensions, as specified at input_shape
+  input_tensor.shape = input_shape; // Set the shape of the input_tensor
+  input_tensor.data = input_data;   // Assign the input_data array to the tensor. It expects a pointer to the array where the data is stored
+
+  // Tensor for the output with 3 classes
+  // Output values of the ANN are saved here
+  float output_data[1];               // Array for storage of the output data, for each object/class one output is created
+  uint16_t output_shape[] = {1, 1};   // Definition of the shape of the tensor, here: {1 (i.e. 1 sample), 3 (i.e. the sample contains predictions for 3 classes/objects)}
+  aitensor_t output_tensor;           // Creation of the output AIfES tensor
+  output_tensor.dtype = aif32;        // Definition of the used data type, here float with 32 bits, different ones are available
+  output_tensor.dim = 2;              // Dimensions of the tensor, here 2 dimensions, as specified at output_shape
+  output_tensor.shape = output_shape; // Set the shape of the input_tensor
+  output_tensor.data = output_data;   // Assign the output_data array to the tensor. It expects a pointer to the array where the data is stored
+
+  //generate a random int and assign it to the input of our tensor
+  float _x = -100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (100 + 100)));
+  input_data[0] = _x;
+  aialgo_inference_model(&model, &input_tensor, &output_tensor); //make inference with our model and input data
+  Serial.print(F("\t"));
+  Serial.print(f(_x));
+  Serial.print(F("\t"));
+  Serial.print(output_data[0]);
+  Serial.print(F("\t\t"));
+  Serial.print(computeDifference(f(_x),output_data[0]));
+  Serial.println("%");
+  delay(700);
 }
