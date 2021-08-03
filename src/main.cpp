@@ -1,13 +1,11 @@
 #include <Arduino.h>
-#include "LittleFS.h"
-#include <ESP8266WiFi.h>
 #include <aifes.h>
 #include <stdlib.h> //to use abs()
 
 aimodel_t model; // AIfES model
 ailayer_t *x;    // Layer object from AIfES, contains the layers
 
-ailoss_mse_f32_t mse_loss;
+ailoss_mse_f32_t mse_loss;  // Object for the loss
 aiopti_t *optimizer; // Object for the optimizer
 
 //2x+1
@@ -19,16 +17,16 @@ void *parameter_memory = NULL; // Pointer to the memory stack of the AIfES model
 uint16_t input_layer_shape[] = {1, 1};
 ailayer_input_t input_layer; // Definition of the AIfES input layer
 
-ailayer_dense_t hidden_layer_1; // Definition of the dense hidden layer
+ailayer_dense_t hidden_layer_1; // Definition of the dense hidden layer which is also our output layer
 
 void build_AIfES_model()
 {
-  // The model is being build in this function. First of all, the layers (input, hidden and output layer) need to be initialized.
+  // The model is being build in this function. First of all, the layers (input, hidden layer) need to be initialized.
   // Then the storage for the parameters of the network is reserved and distributed to the layers.
 
   // ---------------------------------- Layer definition ---------------------------------------
   input_layer.input_dim = 2;                   // Definition of the input dimension, here a 2 dimensional input layer is selected
-  input_layer.input_shape = input_layer_shape; // Definition of the input shape, here a (1,3) layout is necessary, because each sample consists of 3 RGB values
+  input_layer.input_shape = input_layer_shape; // Definition of the input shape, here a (1,1) layout is necessary, because each sample consists of 1 value
 
   hidden_layer_1.neurons = 1;
 
@@ -65,7 +63,7 @@ void build_AIfES_model()
 
 void train_AIfES_model()
 {
-  // In this function the model is trained with the captured training data
+  // In this function the model is trained with the training data
 
   uint32_t i; // Counting variable
 
@@ -88,7 +86,7 @@ void train_AIfES_model()
 
   // Create an output tensor for training, here the results of the ANN are saved and compared to the target tensor during training
   float output_data[5][1];            // Array for storage of the output data
-  uint16_t output_shape[] = {5, 1};   // Definition of the shape of the tensor, here: {# of total samples (i.e. samples per object * 3 objects), 3 (i.e. for each sample we have 3 possible output classes)}
+  uint16_t output_shape[] = {5, 1};   // Definition of the shape of the tensor
   aitensor_t output_tensor;           // Creation of the target AIfES tensor
   output_tensor.dtype = aif32;        // Definition of the used data type, here float with 32 bits, different ones are available
   output_tensor.dim = 2;              // Dimensions of the tensor, here 2 dimensions, as specified at output_shape
@@ -185,7 +183,7 @@ void train_AIfES_model()
 float inference_AIfES_model(float x)
 {
   float input_data[1];              // Array for storage of the RGB input data
-  uint16_t input_shape[] = {1, 1};  // Definition of the shape of the tensor, here: {1 (i.e. 1 sample), 3 (i.e. the sample contains 3 RGB values)}
+  uint16_t input_shape[] = {1, 1};  // Definition of the shape of the tensor
   aitensor_t input_tensor;          // Creation of the input AIfES tensor
   input_tensor.dtype = aif32;       // Definition of the used data type, here float with 32 bits, different ones are available
   input_tensor.dim = 2;             // Dimensions of the tensor, here 2 dimensions, as specified at input_shape
@@ -195,7 +193,7 @@ float inference_AIfES_model(float x)
   // Tensor for the output with 3 classes
   // Output values of the ANN are saved here
   float output_data[1];               // Array for storage of the output data, for each object/class one output is created
-  uint16_t output_shape[] = {1, 1};   // Definition of the shape of the tensor, here: {1 (i.e. 1 sample), 3 (i.e. the sample contains predictions for 3 classes/objects)}
+  uint16_t output_shape[] = {1, 1};   // Definition of the shape of the tensor
   aitensor_t output_tensor;           // Creation of the output AIfES tensor
   output_tensor.dtype = aif32;        // Definition of the used data type, here float with 32 bits, different ones are available
   output_tensor.dim = 2;              // Dimensions of the tensor, here 2 dimensions, as specified at output_shape
@@ -230,7 +228,7 @@ void setup()
 
 void loop()
 {
-  //generate a random int and assign it to the input of our tensor
+  //generate a random float and assign it to the input of our tensor
   float _x = -100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (100 + 100)));
   float real_output = f(_x);
   float calculated_output = inference_AIfES_model(_x);
